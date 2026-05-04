@@ -1,8 +1,3 @@
-Perfecto, acá lo tenés como **un único bloque `.md` continuo**, listo para copiar y pegar directo en un archivo:
-
----
-
-````markdown
 # 🌩️ Radar Weather System — Guía de Desarrollo
 
 Sistema de análisis de radares meteorológicos para detección temprana de fenómenos climáticos. San Rafael, Mendoza.
@@ -232,10 +227,3 @@ Es normal al inicio. Cuando crees modelos SQLAlchemy en `app/data/models/`, edit
 * SQLAlchemy Async: [https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
 * Alembic: [https://alembic.sqlalchemy.org/](https://alembic.sqlalchemy.org/)
 * PostGIS: [https://postgis.net/documentation/](https://postgis.net/documentation/)
-
-```
-
----
-
-Si querés dar el siguiente salto, lo podemos :contentReference[oaicite:0]{index=0} (más orientado a CV/portfolio) o en un **doc técnico tipo paper corto** para lo de UNCuyo + gestión de riesgo.
-```
