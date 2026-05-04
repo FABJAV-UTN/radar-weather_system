@@ -1,0 +1,51 @@
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  radar_images   │────▶│  geotiffs       │────▶│  radar_frames   │
+│  (Subsistema 1) │     │  (Subsistema 1) │     │  (Subsistema 2) │
+├─────────────────┤     ├─────────────────┤     ├─────────────────┤
+│ id: UUID        │     │ id: UUID        │     │ id: UUID        │
+│ png_data: bytes │     │ radar_image_id  │────▶│ geotiff_id      │────┐
+│ timestamp       │     │ file_path       │     │ timestamp       │    │
+│ source: DACC    │     │ bounds: POLYGON │     │ dBZ_matrix:     │    │
+│                 │     │ crs: EPSG:5346  │     │   JSONB         │    │
+│                 │     │ resolution: 900 │     │                 │    │
+└─────────────────┘     └─────────────────┘     └─────────────────┘    │
+                                                                       │
+                              ┌────────────────────────────────────────┘
+                              ▼
+                    ┌─────────────────┐
+                    │  weather_events │
+                    │  (Subsistema 2) │
+                    ├─────────────────┤
+                    │ id: UUID        │
+                    │ frame_id        │◄─────┐
+                    │ imax: float     │      │
+                    │ duration: float │      │
+                    │ precipitation   │      │
+                    │ tres: float     │      │
+                    │ A: float        │      │
+                    │ threat_level    │      │
+                    └─────────────────┘      │
+                                             │
+                              ┌──────────────┘
+                              ▼
+                    ┌─────────────────┐
+                    │  storm_cells    │
+                    ├─────────────────┤
+                    │ id: UUID        │
+                    │ event_id        │◄────┐
+                    │ lat, lon: POINT │     │
+                    │ dbz_max: float  │     │
+                    │ velocity        │     │
+                    └─────────────────┘     │
+                                            │
+                              ┌─────────────┘
+                              ▼
+                    ┌─────────────────┐
+                    │technical_reports│
+                    ├─────────────────┤
+                    │ id: UUID        │
+                    │ event_id        │
+                    │ report_data:    │
+                    │   JSONB         │
+                    │ generated_at    │
+                    └─────────────────┘

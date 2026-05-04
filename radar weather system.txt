@@ -1,0 +1,174 @@
+radar-weather-system/
+├── .github/workflows/ci.yml
+├── alembic/
+│   ├── versions/
+│   └── env.py
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── constants.py              # 🔬 Constantes de ambos subsistemas
+│   │   ├── exceptions.py
+│   │   └── logging_config.py
+│   │
+│   ├── presentation/                 # 🟦 CAPA DE PRESENTACIÓN
+│   │   ├── __init__.py
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   ├── v1/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── radar.py          # POST /radar/ingest (recibe PNG)
+│   │   │   │   ├── geotiff.py        # GET /geotiff/{id} (descarga GeoTIFF)
+│   │   │   │   ├── processing.py     # GET /processing/status/{job_id}
+│   │   │   │   ├── events.py         # GET /events/active
+│   │   │   │   ├── risk.py           # GET /risk/assessment/{cuenca_id}
+│   │   │   │   └── reports.py        # GET /reports/{event_id}
+│   │   └── schemas/
+│   │       ├── __init__.py
+│   │       ├── radar.py              # RadarIngestSchema, GeoTIFFSchema
+│   │       ├── processing.py         # ProcessingJobSchema, StatusSchema
+│   │       ├── events.py
+│   │       ├── risk.py
+│   │       └── reports.py
+│   │
+│   ├── processing/                   # 🟩 SUBSISTEMA 1: Imágenes → GeoTIFF
+│   │   ├── __init__.py
+│   │   ├── models/                   # Entidades de procesamiento
+│   │   │   ├── __init__.py
+│   │   │   ├── radar_image.py        # PNG original: bytes, metadata, timestamp
+│   │   │   ├── geotiff.py           # GeoTIFF resultante: path, bounds, crs, resolution
+│   │   │   └── processing_job.py     # Job: pending → processing → completed → failed
+│   │   │
+│   │   ├── services/                 # Orquestación del pipeline de imágenes
+│   │   │   ├── __init__.py
+│   │   │   ├── image_ingestor.py     # Recibe PNG, valida, guarda raw
+│   │   │   ├── georeferencer.py      # Asigna coords EPSG 5346 a píxeles
+│   │   │   ├── raster_builder.py     # Construye grilla 900m x 900m
+│   │   │   ├── dbz_classifier.py     # Clasifica reflectividad (dBZ) por celda
+│   │   │   └── geotiff_exporter.py   # Exporta GeoTIFF con metadata completa
+│   │   │
+│   │   └── algorithms/               # Algoritmos de procesamiento de imagen
+│   │       ├── __init__.py
+│   │       ├── png_reader.py         # Lee PNG, extrae bandas de color
+│   │       ├── color_to_dbz.py       # Mapea color del radar → valor dBZ
+│   │       ├── georeferencing.py     # Transformación pixel → coordenada real
+│   │       ├── resampler.py          # Regrilla a 900m x 900m
+│   │       └── geotiff_writer.py     # Escribe GeoTIFF con GDAL/rasterio
+│   │
+│   ├── business/                     # 🟨 SUBSISTEMA 2: GeoTIFF → Análisis
+│   │   ├── __init__.py
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── radar_frame.py        # Frame procesado: referencia al GeoTIFF + celdas dBZ
+│   │   │   ├── weather_event.py
+│   │   │   ├── storm_cell.py
+│   │   │   └── risk_assessment.py
+│   │   │
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── frame_loader.py       # Carga GeoTIFF, extrae matriz dBZ
+│   │   │   ├── radar_processor.py    # Pipeline: dBZ → R → I_areal
+│   │   │   ├── event_detector.py     # Detecta tormentas (A > umbral)
+│   │   │   ├── threat_calculator.py  # Componente A (PDF)
+│   │   │   ├── risk_calculator.py
+│   │   │   ├── report_generator.py   # Informe técnico automático
+│   │   │   └── alert_generator.py
+│   │   │
+│   │   └── algorithms/               # 🔬 Algoritmos científicos del PDF
+│   │       ├── __init__.py
+│   │       ├── zr_marshall_palmer.py
+│   │       ├── areal_intensity.py
+│   │       ├── erosivity.py
+│   │       ├── energy_kinetic.py
+│   │       ├── storm_tracking.py
+│   │       ├── interpolation.py
+│   │       └── clustering.py
+│   │
+│   └── data/                         # 🟥 CAPA DE DATOS
+│       ├── __init__.py
+│       ├── database.py
+│       ├── models/
+│       │   ├── __init__.py
+│       │   ├── radar_image.py        # Tabla: png_raw (bytes, timestamp, fuente)
+│       │   ├── geotiff.py           # Tabla: geotiff_result (path, bounds, crs, job_id)
+│       │   ├── processing_job.py     # Tabla: jobs (status, created_at, completed_at)
+│       │   ├── radar_frame.py        # Tabla: frames (ref a geotiff_id, matriz dBZ JSONB)
+│       │   ├── processed_data.py
+│       │   ├── weather_event.py
+│       │   ├── storm_cell.py
+│       │   ├── alert.py
+│       │   └── report.py
+│       └── repositories/
+│           ├── __init__.py
+│           ├── radar_image_repository.py
+│           ├── geotiff_repository.py
+│           ├── processing_job_repository.py
+│           ├── radar_frame_repository.py
+│           ├── event_repository.py
+│           └── report_repository.py
+│
+├── tests/
+│   ├── __init__.py
+│   ├── unit/
+│   │   ├── __init__.py
+│   │   ├── test_processing/          # Tests Subsistema 1
+│   │   │   ├── __init__.py
+│   │   │   ├── test_png_reader.py
+│   │   │   ├── test_color_to_dbz.py
+│   │   │   ├── test_georeferencing.py
+│   │   │   ├── test_resampler.py
+│   │   │   └── test_geotiff_writer.py
+│   │   │
+│   │   ├── test_business/            # Tests Subsistema 2
+│   │   │   ├── __init__.py
+│   │   │   ├── test_algorithms/
+│   │   │   │   ├── test_zr_marshall_palmer.py
+│   │   │   │   ├── test_energy_kinetic.py
+│   │   │   │   ├── test_erosivity.py
+│   │   │   │   ├── test_areal_intensity.py
+│   │   │   │   ├── test_storm_tracking.py
+│   │   │   │   └── test_clustering.py
+│   │   │   └── test_services/
+│   │   │       ├── test_frame_loader.py
+│   │   │       ├── test_radar_processor.py
+│   │   │       ├── test_event_detector.py
+│   │   │       ├── test_threat_calculator.py
+│   │   │       └── test_report_generator.py
+│   │   │
+│   │   └── test_presentation/        # Tests API
+│   │       ├── __init__.py
+│   │       ├── test_radar_ingest.py
+│   │       ├── test_geotiff_download.py
+│   │       └── test_processing_status.py
+│   │
+│   ├── integration/
+│   │   ├── __init__.py
+│   │   ├── test_full_pipeline.py     # Test end-to-end: PNG → GeoTIFF → Análisis
+│   │   ├── test_api_events.py
+│   │   ├── test_api_reports.py
+│   │   └── test_db_postgis.py
+│   │
+│   └── conftest.py
+│
+├── scripts/
+│   ├── seed_db.py
+│   ├── generate_test_radar.py       # Genera PNG de radar sintético
+│   ├── generate_test_geotiff.py     # Genera GeoTIFF de prueba
+│   └── import_historical.py
+│
+├── docker/
+│   ├── Dockerfile
+│   └── entrypoint.sh
+│
+├── docker-compose.yml
+├── docker-compose.override.yml
+├── .env.example
+├── .env
+├── pyproject.toml
+├── uv.lock
+├── alembic.ini
+├── pytest.ini
+├── .gitignore
+└── README.md
