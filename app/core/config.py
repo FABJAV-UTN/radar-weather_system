@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://radar_user:radar_pass@localhost:5432/radar_db"
     log_level: str = "info"
     environment: str = "development"
+    image_source_type: str = "local"
+    image_source_path: str = "./data/radar_images"
+    image_source_url: str = ""
 
 
 settings = Settings()
+

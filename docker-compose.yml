@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://radar_user:radar_pass@db:5432/radar_db}
+      DATABASE_URL: "postgresql+asyncpg://radar_user:radar_pass@db:5432/radar_db"
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
       - "8000:8000"

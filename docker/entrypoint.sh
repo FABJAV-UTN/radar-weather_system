@@ -8,4 +8,4 @@ echo "🔄 Ejecutando migraciones..."
 uv run alembic upgrade head
 
 echo "✅ Base de datos lista. Iniciando aplicación..."
-exec "$@"
+exec uv run "$@"
