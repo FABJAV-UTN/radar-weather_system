@@ -17,7 +17,7 @@ class LocalRadarImage(ImageSourceEntry):
 
 
 class LocalSource(ImageSource):
-    def __init__(self, base_path: Path, pattern: str = "*.gif"):
+    def __init__(self, base_path: Path, pattern: str = "*.png"):
         self.base_path = base_path
         self.pattern = pattern
 

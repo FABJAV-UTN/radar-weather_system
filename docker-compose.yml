@@ -19,12 +19,11 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    # UN SOLO BLOQUE environment (unificado)
     environment:
       DATABASE_URL: "postgresql+asyncpg://radar_user:radar_pass@db:5432/radar_db"
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_LEVEL: debug
       RADAR_GIF_SOURCE_PATH: /radar_data
-      RADAR_GIF_PATTERN: "*.gif"
+      RADAR_GIF_PATTERN: "*.png"
       IMAGE_SOURCE_TYPE: ${IMAGE_SOURCE_TYPE:-local}
       GEOTIFF_STORAGE_PATH: ${GEOTIFF_STORAGE_PATH:-./data/geotiffs}
     ports:
@@ -34,6 +33,8 @@ services:
         condition: service_healthy
     volumes:
       - ./app:/app/app:ro
+      - ./app/data/geo_templates:/app/data/geo_templates:ro
+      - ./app/data/geotiffs:/app/data/geotiffs
       - /home/fabio/Descargas/compartir-Fabio-20260505T041231Z-3-001/compartir-Fabio:/radar_data:ro
 
 volumes:

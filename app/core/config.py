@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     image_source_type: str = "local"
     image_source_path: str = "./data/radar_images"
     radar_gif_source_path: str = ""
-    radar_gif_pattern: str = "*.gif"
+    radar_gif_pattern: str = "*.png"
     image_source_url: str = ""
 
     # Storage de GeoTIFFs generados.

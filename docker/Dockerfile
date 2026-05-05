@@ -3,6 +3,7 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
     libexpat1 \
     libgdal-dev \
     libgeos-dev \

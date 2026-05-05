@@ -54,13 +54,13 @@ def detect_bank_image_type(image: Image.Image) -> int:
     Detecta qué datotif usar para imágenes del banco local.
 
     Regla:
-        - Si algún lado >= 799px → datotif3
-        - Si ambos lados < 799px → datotif2
+        - Si el ancho es mayor a 799px → datotif3
+        - Si el ancho es menor o igual a 799px → datotif2
 
     Returns:
         2 o 3 (número de datotif a usar)
     """
-    w, h = image.size
-    if max(w, h) >= 799:
+    w, _ = image.size
+    if w > 799:
         return 3
     return 2

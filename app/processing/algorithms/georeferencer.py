@@ -7,8 +7,8 @@ tipo de imagen de radar.
 
 Tipos:
     datotif1: Imágenes del DACC API (latest.gif)
-    datotif2: Banco local, imágenes de tamaño < 799px
-    datotif3: Banco local, imágenes de tamaño >= 799px
+    datotif2: Banco local, imágenes con ancho <= 799px
+    datotif3: Banco local, imágenes con ancho > 799px
 
 Los datotifs se cargan UNA SOLA VEZ al inicio del proceso y se
 reutilizan para todas las imágenes. Son archivos de sólo lectura.
