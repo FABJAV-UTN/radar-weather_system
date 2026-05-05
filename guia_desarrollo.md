@@ -26,9 +26,9 @@ Este es el flujo **diario de desarrollo**. Docker solo corre la base de datos.
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/tu-usuario/radar-weather-system.git
+git clone https://github.com/tu-usuario/radar-weather-system.git 
 cd radar-weather-system
-````
+```
 
 ### 2. Instalar dependencias con UV
 
@@ -73,157 +73,134 @@ uv run alembic upgrade head
 uv run fastapi dev app/main.py
 ```
 
-> La API queda en: [http://localhost:8000](http://localhost:8000)
+> La API queda en: [http://localhost:8000](http://localhost:8000)  
 > Documentación interactiva: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### 8. Correr tests
+---
+
+## 🧪 Flujo de Desarrollo TDD (Día a Día)
+
+Este proyecto usa **TDD + SDD**. Cada feature nueva sigue este flujo:
+
+### 1. Escribir test primero (RED)
+
+Crear archivo de test en `tests/unit/...` correspondiente. El test debe FALLAR inicialmente porque la implementación no existe.
+
+### 2. Correr test para verificar que falla
 
 ```bash
-# Todos los tests
-uv run pytest -v
-
-# Tests unitarios solo
-uv run pytest tests/unit/ -v
-
-# Tests con coverage
-uv run pytest --cov=app --cov-report=term-missing
-
-# Watch mode (re-corre al guardar)
-uv run pytest -f
+uv run pytest tests/unit/ruta/al/test.py -v
 ```
 
-### 9. Linting y formateo (antes de commitear)
+### 3. Implementar código mínimo (GREEN)
+
+Crear archivo en `app/...` correspondiente. Hacer que el test pase.
+
+### 4. Correr pipeline de calidad
 
 ```bash
-uv run ruff check .          # Verificar estilo
-uv run ruff format .         # Formatear código
-uv run mypy app/             # Verificar tipos
+uv run pytest -v                    # Tests
+uv run ruff check .                 # Linter
+uv run ruff format .                # Formato
+uv run mypy app/                    # Type checking
+```
+
+### 5. Commit
+
+```bash
+git add .
+git commit -m "feat: descripción de la feature"
 ```
 
 ---
 
-## 🐳 Modo Docker Completo (Validación / Demo)
+## 🐳 Docker (Validación Completa)
 
-Usar cuando querés **probar todo el sistema junto** o mostrarle a alguien que no tiene UV instalado.
-
-### Levantar todo (API + DB)
+Usar cuando querés validar que todo funciona junto o antes de entregar:
 
 ```bash
+# Build completo con hot reload
 docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
-```
 
-> Esto construye la imagen de la app y levanta API + PostGIS juntos.
-
-### Verificar
-
-```bash
-curl http://localhost:8000/health
-```
-
-### Correr tests dentro del contenedor
-
-```bash
+# Tests dentro del contenedor
 docker compose exec api uv run pytest -v
-```
 
-### Apagar todo
-
-```bash
-docker compose down -v   # -v borra datos de DB (cuidado)
+# Apagar todo
+docker compose down -v
 ```
 
 ---
 
-## 🔄 Flujo de Trabajo Diario (Resumen)
+## 📁 Estructura del Proyecto
 
-```bash
-# Al empezar a codear
-docker compose up -d db          # Si no está corriendo
-uv run alembic upgrade head      # Si hay nuevas migraciones
-uv run fastapi dev app/main.py   # Levantar API
-
-# En otra terminal (tests, linting, etc.)
-uv run pytest -f                 # Tests en watch mode
-uv run ruff check .              # Linter
-
-# Al terminar
-docker compose down              # Apagar DB
 ```
+app/
+├── core/                    # Config, constantes, logging
+├── presentation/api/v1/     # Endpoints FastAPI
+├── processing/              # 🟩 Subsistema 1: PNG → GeoTIFF
+│   ├── algorithms/           # png_reader, color_to_dbz, geotiff_writer
+│   └── services/             # image_ingestor, georeferencer, etc.
+├── business/                # 🟨 Subsistema 2: GeoTIFF → Análisis
+│   ├── algorithms/           # zr_marshall_palmer, erosivity, clustering
+│   └── services/             # radar_processor, event_detector, report_generator
+└── data/                    # 🟥 Capa de Datos: SQLAlchemy + PostGIS
+    ├── models/              # Tablas
+    └── repositories/        # Acceso a datos
+
+tests/
+├── unit/test_processing/     # Tests Subsistema 1
+├── unit/test_business/       # Tests Subsistema 2
+├── unit/test_presentation/   # Tests API
+└── integration/             # Tests end-to-end
+```
+
+---
+
+## 🔧 Comandos Útiles
+
+| Comando | Qué hace |
+|---------|----------|
+| `uv sync` | Instala/actualiza dependencias |
+| `uv add <paquete>` | Agrega dependencia |
+| `uv add --group dev <paquete>` | Agrega dependencia de dev |
+| `uv lock` | Actualiza `uv.lock` |
+| `uv run pytest -f` | Tests en watch mode |
+| `uv run pytest --cov=app` | Tests con coverage |
+| `alembic revision --autogenerate -m "mensaje"` | Crear migración |
+| `alembic upgrade head` | Aplicar migraciones |
+| `alembic downgrade -1` | Revertir última migración |
 
 ---
 
 ## 🆘 Troubleshooting
 
-### `permission denied while trying to connect to Docker daemon`
-
-```bash
-sudo usermod -aG docker $USER    # Agregar usuario al grupo docker
-newgrp docker                     # Aplicar sin cerrar sesión
-# O cerrar sesión y volver a entrar
-```
-
-### `bash: uv: orden no encontrada`
-
-```bash
-# UV no está en el PATH. Recargar shell:
-source $HOME/.local/bin/env
-# O cerrar y abrir terminal
-```
-
-### `connection refused` al conectar a PostgreSQL
-
-```bash
-# Verificar que DB está corriendo
-docker compose ps
-docker compose logs db
-
-# Verificar que .env tiene DATABASE_URL correcto
-cat .env | grep DATABASE_URL
-```
-
-### Alembic falla con `target_metadata = None`
-
-Es normal al inicio. Cuando crees modelos SQLAlchemy en `app/data/models/`, editá `alembic/env.py` y descomentá la importación de `Base`.
+| Problema | Solución |
+|----------|----------|
+| `permission denied` Docker | `sudo usermod -aG docker $USER` + reiniciar sesión |
+| Puerto 5432 ocupado | `docker compose down` o cambiar puerto en `.env` |
+| `uv: command not found` | `source $HOME/.local/bin/env` o reiniciar terminal |
+| Alembic falla | Verificar `DATABASE_URL` en `.env` y que DB esté corriendo |
+| Tests lentos | Usar `pytest -x` (para en primer fallo) o `-k` para filtrar |
 
 ---
 
-## 📁 Estructura Rápida
+## 🌐 Variables de Entorno (.env)
 
-```
-.
-├── app/
-│   ├── core/           # Config, constantes del PDF, logging
-│   ├── processing/     # Subsistema 1: PNG → GeoTIFF
-│   ├── business/       # Subsistema 2: GeoTIFF → Análisis (modelo Soria)
-│   ├── data/           # SQLAlchemy, repositorios, migraciones
-│   └── presentation/   # FastAPI routers y schemas
-├── tests/
-│   ├── unit/           # Tests aislados (algoritmos, servicios)
-│   └── integration/    # Tests con DB real y API
-├── docker/             # Dockerfile y entrypoint
-├── scripts/            # Utilidades (seed, generadores de test)
-└── alembic/            # Migraciones de base de datos
-```
+| Variable | Default | Para qué |
+|----------|---------|----------|
+| `DATABASE_URL` | `postgresql+asyncpg://radar_user:radar_pass@localhost:5432/radar_db` | Conexión a PostgreSQL |
+| `LOG_LEVEL` | `info` | Nivel de logging |
+| `ENVIRONMENT` | `development` | development / staging / production |
+| `GEOTIFF_STORAGE_PATH` | `./data/geotiffs` | Dónde guardar GeoTIFFs |
 
 ---
 
-## 🎯 Principios del Proyecto
+## 🔄 CI/CD (GitHub Actions)
 
-| Principio     | Cómo se aplica                                                           |
-| ------------- | ------------------------------------------------------------------------ |
-| **YAGNI**     | No agregamos TimescaleDB hasta necesitar time-series reales              |
-| **DRY**       | Constantes del PDF centralizadas en `app/core/constants.py`              |
-| **KISS**      | Pipeline lineal: PNG → GeoTIFF → Análisis. Sin mezclar responsabilidades |
-| **SOLID**     | `ProcessingJob` solo trackea estado. `ThreatCalculator` solo calcula A   |
-| **TDD**       | Tests unitarios para cada algoritmo. Tests de integración para pipelines |
-| **12-Factor** | Config en `.env`. DB stateless. Un codebase, múltiples deploys           |
+Cada `push` a `main` o `develop` corre automáticamente:
+- `ruff check`
+- `mypy app/`
+- `pytest --cov=app`
+- Build de Docker
 
----
-
-## 📚 Documentación Adicional
-
-* FastAPI: [https://fastapi.tiangolo.com/](https://fastapi.tiangolo.com/)
-* UV: [https://docs.astral.sh/uv/](https://docs.astral.sh/uv/)
-* SQLAlchemy Async: [https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
-* Alembic: [https://alembic.sqlalchemy.org/](https://alembic.sqlalchemy.org/)
-* PostGIS: [https://postgis.net/documentation/](https://postgis.net/documentation/)
+Ver `.github/workflows/ci.yml`
