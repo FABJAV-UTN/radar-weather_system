@@ -2,17 +2,10 @@
 Pipeline de procesamiento de imágenes de radar.
 
 Orquesta todos los pasos del Subsistema 1:
-    GIF (fuente) → recorte → limpieza → relleno → geolocalizacion → GeoTIFF (DB)
+    GIF (fuente) → limpieza → relleno → geolocalización → GeoTIFF → DB
 
-Dos modos según la fuente:
-    - DACC API / Cloud bank: recortar → limpiar → rellenar → geolocalizar (datotif1)
-    - Banco local:           limpiar → rellenar → geolocalizar (datotif2 o datotif3)
-
-Uso:
-    loader = GeoReferenceLoader()
-    loader.load_all()
-    pipeline = RadarPipeline(geo_loader=loader)
-    await pipeline.process(image_path, source_type="dacc_api")
+El banco local no usa subcarpetas ni distinciones artificiales entre small/large.
+Las imágenes locales se procesan como "local_bank" y se clasifican por tamaño real.
 """
 
 from __future__ import annotations
@@ -22,84 +15,98 @@ from datetime import datetime
 from pathlib import Path
 
 from PIL import Image
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.data.repositories.radar_image_repository import RadarImageRepository
 from app.processing.algorithms.cleaner import clean_image
 from app.processing.algorithms.cropper import crop_margins, detect_bank_image_type
 from app.processing.algorithms.georeferencer import GeoReferenceLoader, apply_geo_reference
 from app.processing.algorithms.hole_filler import fill_gaps
 from app.processing.algorithms.timestamp_extractor import extract_timestamp, format_filename
+from app.processing.services.local_source import extract_timestamp_from_filename
 
 logger = logging.getLogger(__name__)
 
-# Nombre de lugar para el naming de archivos (ajustar por config si el sistema
-# procesa múltiples radares en el futuro)
 DEFAULT_LOCATION = "san_rafael"
 
 
 class RadarPipeline:
     """
-    Pipeline completo de procesamiento de radar GIF → GeoTIFF.
-
+    Pipeline completo de procesamiento de radar GIF → GeoTIFF → DB.
     Instanciar una vez y reutilizar para múltiples imágenes.
-    El geo_loader debe tener cargados los datotifs antes de procesar.
     """
 
     def __init__(
         self,
         geo_loader: GeoReferenceLoader,
+        session: AsyncSession,
         output_dir: Path | None = None,
         location: str = DEFAULT_LOCATION,
     ):
         self.geo_loader = geo_loader
-        self.output_dir = output_dir or Path("data/geotiffs")
+        self.session = session
+        self.output_dir = output_dir or Path(settings.geotiff_storage_path)
         self.location = location
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self._repo = RadarImageRepository(session)
 
-    def process(
+    async def process(
         self,
         image_path: Path,
-        source_type: str,  # "dacc_api" | "local_bank" | "cloud_bank"
+        source_type: str,
         fallback_timestamp: datetime | None = None,
     ) -> Path | None:
         """
-        Procesa una imagen de radar y la guarda como GeoTIFF.
+        Procesa una imagen de radar y la persiste como GeoTIFF + registro en DB.
 
         Args:
             image_path: Ruta al GIF de entrada.
-            source_type: De dónde viene la imagen (determina si recortar y qué datotif usar).
-            fallback_timestamp: Timestamp a usar si el OCR falla. Si None y el OCR falla,
-                                se descarta la imagen (devuelve None).
+            source_type: "dacc_api" | "local_bank" | "cloud_bank"
+            fallback_timestamp: Usar si el OCR y el fallback de filename fallan. None = descartar imagen.
 
         Returns:
-            Ruta al GeoTIFF generado, o None si falló el timestamp.
+            Ruta al GeoTIFF generado, o None si falló.
         """
-        logger.info("Procesando imagen: %s (fuente: %s)", image_path.name, source_type)
+        logger.info("Procesando: %s (fuente: %s)", image_path.name, source_type)
 
         image = Image.open(image_path)
 
-        # ─── PASO 1: Recorte de márgenes ──────────────────────────────────────
-        # Sólo para imágenes del DACC o cloud bank.
-        # Las del banco local ya están recortadas.
         if source_type in ("dacc_api", "cloud_bank"):
             image = crop_margins(image)
             datotif_id = 1
-        else:  # local_bank
+        elif source_type == "local_bank":
             datotif_id = detect_bank_image_type(image)
+        else:
+            raise ValueError(f"source_type desconocido: {source_type!r}")
 
-        # ─── PASO 2: Extraer timestamp (antes de limpiar para tener texto OCR) ─
+        # ─── PASO 2: Extraer timestamp por OCR ────────────────────────────────
         timestamp = extract_timestamp(image)
         if timestamp is None:
-            if fallback_timestamp is not None:
+            filename_timestamp = extract_timestamp_from_filename(image_path.name)
+            if filename_timestamp is not None:
                 logger.warning(
-                    "OCR falló para %s. Usando timestamp de fallback: %s",
-                    image_path.name, fallback_timestamp
+                    "OCR falló para %s. Usando timestamp del nombre: %s",
+                    image_path.name,
+                    filename_timestamp,
+                )
+                timestamp = filename_timestamp
+            elif fallback_timestamp is not None:
+                logger.warning(
+                    "OCR falló para %s. Usando fallback proporcionado: %s",
+                    image_path.name,
+                    fallback_timestamp,
                 )
                 timestamp = fallback_timestamp
             else:
-                logger.error(
-                    "OCR falló y no hay fallback para %s. Imagen descartada.", image_path.name
-                )
+                logger.error("OCR falló sin fallback. Imagen descartada: %s", image_path.name)
                 return None
+
+        # ─── Verificar duplicado ──────────────────────────────────────────────
+        filename = format_filename(self.location, timestamp) + ".tif"
+        if await self._repo.exists(filename):
+            logger.info("Ya existe en DB: %s. Salteando.", filename)
+            return self.output_dir / filename
 
         # ─── PASO 3: Limpieza ─────────────────────────────────────────────────
         clean_rgb, gap_mask = clean_image(image)
@@ -107,17 +114,23 @@ class RadarPipeline:
         # ─── PASO 4: Relleno de huecos ────────────────────────────────────────
         filled_rgb = fill_gaps(clean_rgb, gap_mask)
 
-        # ─── PASO 5: Geolocalización ──────────────────────────────────────────
+        # ─── PASO 5: Geolocalización → GeoTIFF en disco ───────────────────────
         geo = self.geo_loader.get(datotif_id)
-
-        filename = format_filename(self.location, timestamp)
-        output_path = self.output_dir / f"{filename}.tif"
-
+        output_path = self.output_dir / filename
         apply_geo_reference(filled_rgb, geo, output_path)
 
-        logger.info(
-            "GeoTIFF guardado: %s (datotif=%d, timestamp=%s)",
-            output_path.name, datotif_id, timestamp.isoformat()
+        # ─── PASO 6: Persistir en DB ──────────────────────────────────────────
+        await self._repo.save(
+            geotiff_path=output_path,
+            location=self.location,
+            image_timestamp=timestamp,
+            source_type=source_type,
+            datotif_id=datotif_id,
+            storage_root=self.output_dir,
         )
+        await self.session.commit()
 
+        logger.info("Guardado: %s", output_path.name)
         return output_path
+
+

@@ -10,7 +10,7 @@ import pytest
 from PIL import Image
 from pathlib import Path
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.processing.algorithms.dbz_colors import classify_pixel, classify_array, DBZ_COLOR_MAP
 from app.processing.algorithms.cropper import crop_margins, detect_bank_image_type, CROP_MARGINS
@@ -254,7 +254,8 @@ class TestRadarPipeline:
     Sin DB, sin datotifs reales, usando mocks para OCR.
     """
 
-    def test_pipeline_dacc_api_happy_path(self, tmp_path: Path):
+    @pytest.mark.asyncio
+    async def test_pipeline_dacc_api_happy_path(self, tmp_path: Path):
         from app.processing.services.radar_pipeline import RadarPipeline
 
         # Preparar imagen GIF sintética
@@ -279,15 +280,54 @@ class TestRadarPipeline:
             "app.processing.services.radar_pipeline.extract_timestamp",
             return_value=fixed_ts
         ):
-            pipeline = RadarPipeline(geo_loader=loader, output_dir=tmp_path / "out")
-            result = pipeline.process(img_path, source_type="dacc_api")
+            pipeline = RadarPipeline(
+                geo_loader=loader,
+                session=AsyncMock(),
+                output_dir=tmp_path / "out",
+            )
+            pipeline._repo = MagicMock(
+                exists=AsyncMock(return_value=False),
+                save=AsyncMock(),
+            )
+            result = await pipeline.process(img_path, source_type="dacc_api")
 
         assert result is not None
         assert result.exists()
         assert result.suffix == ".tif"
         assert "san_rafael" in result.name
 
-    def test_pipeline_returns_none_when_ocr_fails_no_fallback(self, tmp_path: Path):
+    @pytest.mark.asyncio
+    async def test_pipeline_local_bank_uses_filename_timestamp_when_ocr_fails(self, tmp_path: Path):
+        from app.processing.services.radar_pipeline import RadarPipeline
+
+        img_path = tmp_path / "RADAR_20260504_203000.gif"
+        Image.new("RGB", (800, 600), color=(0, 0, 0)).save(img_path)
+
+        loader = GeoReferenceLoader(datotif_dir=tmp_path)
+        loader.load_all()
+
+        with patch(
+            "app.processing.services.radar_pipeline.extract_timestamp",
+            return_value=None
+        ):
+            pipeline = RadarPipeline(
+                geo_loader=loader,
+                session=AsyncMock(),
+                output_dir=tmp_path / "out",
+            )
+            pipeline._repo = MagicMock(
+                exists=AsyncMock(return_value=False),
+                save=AsyncMock(),
+            )
+            result = await pipeline.process(img_path, source_type="local_bank", fallback_timestamp=None)
+
+        assert result is not None
+        assert result.exists()
+        assert result.suffix == ".tif"
+        assert "san_rafael_040526_203000" in result.name
+
+    @pytest.mark.asyncio
+    async def test_pipeline_returns_none_when_ocr_fails_no_fallback(self, tmp_path: Path):
         from app.processing.services.radar_pipeline import RadarPipeline
 
         img_path = tmp_path / "radar.gif"
@@ -300,7 +340,15 @@ class TestRadarPipeline:
             "app.processing.services.radar_pipeline.extract_timestamp",
             return_value=None
         ):
-            pipeline = RadarPipeline(geo_loader=loader, output_dir=tmp_path / "out")
-            result = pipeline.process(img_path, source_type="dacc_api", fallback_timestamp=None)
+            pipeline = RadarPipeline(
+                geo_loader=loader,
+                session=AsyncMock(),
+                output_dir=tmp_path / "out",
+            )
+            pipeline._repo = MagicMock(
+                exists=AsyncMock(return_value=False),
+                save=AsyncMock(),
+            )
+            result = await pipeline.process(img_path, source_type="dacc_api", fallback_timestamp=None)
 
         assert result is None

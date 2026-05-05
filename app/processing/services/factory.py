@@ -10,7 +10,8 @@ from app.processing.services.cloud_bank_source import CloudBankSource
 def get_image_source() -> ImageSource:
     match settings.image_source_type:
         case "local":
-            return LocalSource(Path(settings.image_source_path))
+            source_path = settings.radar_gif_source_path or settings.image_source_path
+            return LocalSource(Path(source_path), pattern=settings.radar_gif_pattern)
         case "dacc_api":
             return DACCApiSource()
         case "cloud_bank":
