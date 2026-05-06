@@ -104,9 +104,24 @@ class RadarPipeline:
 
         # ─── Verificar duplicado ──────────────────────────────────────────────
         filename = format_filename(self.location, timestamp) + ".tif"
-        if await self._repo.exists(filename):
-            logger.info("Ya existe en DB: %s. Salteando.", filename)
-            return self.output_dir / filename
+        if await self._repo.get_by_timestamp(self.location, timestamp) is not None:
+            logger.info(
+                "Ya existe imagen para %s @ %s. Salteando.",
+                self.location,
+                timestamp,
+            )
+            return None
+
+        # ─── Almacenamiento dinámico para DACC ────────────────────────────────
+        output_root = self.output_dir
+        if source_type == "dacc_api":
+            output_root = (
+                self.output_dir
+                / source_type
+                / timestamp.strftime("%Y")
+                / timestamp.strftime("%m")
+            )
+        output_root.mkdir(parents=True, exist_ok=True)
 
         # ─── PASO 3: Limpieza ─────────────────────────────────────────────────
         clean_rgb, gap_mask = clean_image(image)
@@ -116,7 +131,7 @@ class RadarPipeline:
 
         # ─── PASO 5: Geolocalización → GeoTIFF en disco ───────────────────────
         geo = self.geo_loader.get(datotif_id)
-        output_path = self.output_dir / filename
+        output_path = output_root / filename
         apply_geo_reference(filled_rgb, geo, output_path)
 
         # ─── PASO 6: Persistir en DB ──────────────────────────────────────────

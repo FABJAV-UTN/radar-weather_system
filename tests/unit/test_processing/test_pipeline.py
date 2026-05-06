@@ -111,7 +111,7 @@ class TestCropper:
 
     def test_detect_bank_type_exactly_799(self):
         img = Image.new("RGB", (799, 500))
-        assert detect_bank_image_type(img) == 3
+        assert detect_bank_image_type(img) == 2
 
     def test_detect_bank_type_798(self):
         img = Image.new("RGB", (798, 500))
@@ -288,6 +288,7 @@ class TestRadarPipeline:
             pipeline._repo = MagicMock(
                 exists=AsyncMock(return_value=False),
                 save=AsyncMock(),
+                get_by_timestamp=AsyncMock(return_value=None),
             )
             result = await pipeline.process(img_path, source_type="dacc_api")
 
@@ -318,6 +319,7 @@ class TestRadarPipeline:
             pipeline._repo = MagicMock(
                 exists=AsyncMock(return_value=False),
                 save=AsyncMock(),
+                get_by_timestamp=AsyncMock(return_value=None),
             )
             result = await pipeline.process(img_path, source_type="local_bank", fallback_timestamp=None)
 

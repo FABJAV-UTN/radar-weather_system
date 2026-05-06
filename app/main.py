@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
+from app.core.scheduler import DACCScheduler
 from app.presentation.api.v1 import radar_router, images_router
 from app.processing.algorithms.georeferencer import GeoReferenceLoader
 
@@ -29,7 +30,9 @@ async def lifespan(app: FastAPI):
         geo_loader = GeoReferenceLoader()
         geo_loader.load_all()
         app.state.geo_loader = geo_loader
+        app.state.dacc_scheduler = DACCScheduler(geo_loader=geo_loader)
         logger.info("✓ GeoReferenceLoader inicializado y cacheado en app.state")
+        logger.info("✓ DACCScheduler inicializado y disponible en app.state")
     except Exception as e:
         logger.error("✗ Error inicializando GeoReferenceLoader: %s", e, exc_info=True)
         raise
@@ -37,6 +40,14 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown: limpieza (si es necesaria)
+    if getattr(app.state, "dacc_scheduler", None) is not None:
+        scheduler = app.state.dacc_scheduler
+        if scheduler.is_running():
+            logger.info("Deteniendo DACCScheduler en shutdown")
+            try:
+                await scheduler.stop()
+            except Exception as e:
+                logger.warning("Error deteniendo DACCScheduler en shutdown: %s", e)
     logger.info("Cerrando aplicación Radar Weather System")
 
 

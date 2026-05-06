@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     radar_gif_pattern: str = "*.png"
     image_source_url: str = ""
 
+    # Intervalo entre ejecuciones del loop DACC (segundos)
+    DACC_LOOP_INTERVAL_SECONDS: int = 120
+
     # Storage de GeoTIFFs generados.
     # En producción / data bank: cambiar esta variable en .env
     geotiff_storage_path: str = "./data/geotiffs"

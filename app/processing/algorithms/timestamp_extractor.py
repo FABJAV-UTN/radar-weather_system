@@ -90,6 +90,26 @@ def extract_timestamp(image: Image.Image) -> datetime | None:
     return local_dt
 
 
+def ocr_image_text(image: Image.Image, psm: int = 6) -> str:
+    """Extrae texto de una imagen completa usando Tesseract."""
+    try:
+        import pytesseract
+    except ImportError:
+        logger.error(
+            "pytesseract no instalado. Agregá 'pytesseract' con 'uv add pytesseract'. "
+            "También necesitás Tesseract instalado en el sistema."
+        )
+        return ""
+
+    raw_text = pytesseract.image_to_string(image, config=f"--psm {psm}")
+    return raw_text.strip()
+
+
+def parse_timestamp(text: str) -> datetime | None:
+    """Intenta parsear una fecha/hora a partir de texto OCR completo."""
+    return _parse_timestamp(text)
+
+
 def format_filename(location: str, timestamp: datetime) -> str:
     """
     Genera el nombre de archivo en formato lugar_ddmmaa_hhmmss.

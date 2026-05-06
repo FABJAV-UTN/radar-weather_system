@@ -2,7 +2,6 @@
 
 import logging
 import shutil
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -11,11 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
 from app.core.config import settings
+from app.core.scheduler import DACCScheduler
 from app.data.database import get_db
 from app.data.models.radar_image import RadarImage
 from app.presentation.schemas.radar import (
     ProcessLocalResponse,
-    ProcessDACCResponse,
+    ProcessDACCControlResponse,
+    DACCStatusResponse,
     SystemStatusResponse,
     ProcessedImageInfo,
 )
@@ -133,94 +134,60 @@ async def process_local(
     return response
 
 
-@router.post("/process-dacc", response_model=ProcessDACCResponse)
+@router.post("/process-dacc", response_model=ProcessDACCControlResponse)
 async def process_dacc(
-    session: AsyncSession = Depends(get_db),
-    geo_loader: GeoReferenceLoader = Depends(get_geo_loader),
-) -> ProcessDACCResponse:
+    request: Request,
+) -> ProcessDACCControlResponse:
     """
-    Descarga latest.gif de la API DACC y lo procesa.
+    Inicia el loop de descarga y procesamiento DACC en background.
+    """
+    scheduler: DACCScheduler | None = getattr(request.app.state, "dacc_scheduler", None)
+    if scheduler is None:
+        logger.error("DACC scheduler no inicializado en app.state")
+        raise HTTPException(status_code=500, detail="DACC scheduler no inicializado")
 
-    Guarda temporalmente en /tmp/, procesa con source_type="dacc_api"
-    y retorna el path del GeoTIFF generado.
-    """
-    logger.info("Iniciando procesamiento de DACC API")
-    response = ProcessDACCResponse(success=False)
+    if scheduler.is_running():
+        raise HTTPException(status_code=409, detail="Loop DACC ya está activo")
 
     try:
-        # Obtener la fuente DACC
-        source = get_image_source()
-        
-        if source.__class__.__name__ != "DACCApiSource":
-            # Intentar crear DACCApiSource explícitamente
-            from app.processing.services.dacc_api_source import DACCApiSource
-            source = DACCApiSource()
+        await scheduler.start()
+    except RuntimeError as exc:
+        logger.error("Error iniciando loop DACC: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
-        # Crear archivo temporal
-        temp_dir = Path(tempfile.gettempdir())
-        temp_file = temp_dir / "dacc_latest.gif"
-        
-        logger.info("Descargando latest.gif de DACC API a %s", temp_file)
-        
-        # Descargar la imagen
-        try:
-            temp_file = await source.fetch("latest.gif", destination=temp_file)
-        except Exception as e:
-            response.error = f"Error descargando desde DACC API: {str(e)}"
-            logger.error("Error descargando: %s", response.error)
-            return response
+    logger.info("Loop DACC iniciado")
+    return ProcessDACCControlResponse(status="started")
 
-        # Procesar la imagen
-        try:
-            pipeline = RadarPipeline(geo_loader, session)
-            
-            # Usar fecha actual como fallback si el OCR no puede extraer timestamp
-            output_path = await pipeline.process(
-                image_path=temp_file,
-                source_type="dacc_api",
-                fallback_timestamp=datetime.now(),
-            )
 
-            if output_path is not None:
-                # Obtener timestamp y datotif_id de la DB
-                result = await session.execute(
-                    select(RadarImage).where(
-                        RadarImage.filename == output_path.name
-                    )
-                )
-                db_record = result.scalar_one_or_none()
-                
-                response.success = True
-                response.filename = output_path.name
-                response.file_path = str(output_path.relative_to(settings.geotiff_storage_path))
-                response.timestamp = db_record.image_timestamp if db_record else datetime.now()
-                response.datotif_id = db_record.datotif_id if db_record else 1
-                
-                logger.info("✓ DACC procesado exitosamente: %s", output_path.name)
-            else:
-                response.error = "Pipeline retornó None (imagen descartada)"
-                logger.warning("Pipeline retornó None")
+@router.post("/process-dacc/stop", response_model=ProcessDACCControlResponse)
+async def stop_dacc(
+    request: Request,
+) -> ProcessDACCControlResponse:
+    """Detiene el loop DACC de forma graceful."""
+    scheduler: DACCScheduler | None = getattr(request.app.state, "dacc_scheduler", None)
+    if scheduler is None:
+        logger.error("DACC scheduler no inicializado en app.state")
+        raise HTTPException(status_code=500, detail="DACC scheduler no inicializado")
 
-        except Exception as e:
-            response.error = f"Error en pipeline: {str(e)}"
-            logger.error("Error en pipeline: %s", e, exc_info=True)
+    if not scheduler.is_running():
+        raise HTTPException(status_code=404, detail="Loop DACC no está activo")
 
-        finally:
-            # Limpiar archivo temporal
-            if temp_file.exists():
-                try:
-                    temp_file.unlink()
-                    logger.info("Archivo temporal eliminado: %s", temp_file)
-                except Exception as e:
-                    logger.warning("No se pudo eliminar archivo temporal: %s", e)
+    await scheduler.stop()
+    logger.info("Loop DACC detenido")
+    return ProcessDACCControlResponse(status="stopped")
 
-        await session.commit()
 
-    except Exception as e:
-        response.error = f"Error crítico: {str(e)}"
-        logger.error("Error crítico en process_dacc: %s", e, exc_info=True)
+@router.get("/process-dacc/status", response_model=DACCStatusResponse)
+async def status_dacc(
+    request: Request,
+) -> DACCStatusResponse:
+    """Retorna el estado del loop DACC."""
+    scheduler: DACCScheduler | None = getattr(request.app.state, "dacc_scheduler", None)
+    if scheduler is None:
+        logger.error("DACC scheduler no inicializado en app.state")
+        raise HTTPException(status_code=500, detail="DACC scheduler no inicializado")
 
-    return response
+    return scheduler.get_status()
 
 
 @router.get("/status", response_model=SystemStatusResponse)

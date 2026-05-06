@@ -40,6 +40,44 @@ class ProcessDACCResponse(BaseModel):
     error: str | None = Field(default=None, description="Mensaje de error si falló")
 
 
+class ProcessDACCControlResponse(BaseModel):
+    """Respuesta de control del loop DACC."""
+    status: str = Field(..., description="Estado del loop: started o stopped")
+
+
+class DACCStatusResponse(BaseModel):
+    """Estado del loop DACC."""
+    is_running: bool = Field(..., description="Si el loop DACC está activo")
+    started_at: datetime | None = Field(
+        default=None,
+        description="Fecha y hora en que se inició el loop (UTC-3)",
+    )
+    last_download_at: datetime | None = Field(
+        default=None,
+        description="Fecha y hora de la última descarga DACC (UTC-3)",
+    )
+    last_image_timestamp: datetime | None = Field(
+        default=None,
+        description="Timestamp extraído de la última imagen válida (UTC-3)",
+    )
+    total_processed_this_session: int = Field(
+        default=0,
+        description="Cantidad de imágenes procesadas en esta sesión",
+    )
+    total_skipped_duplicates: int = Field(
+        default=0,
+        description="Cantidad de imágenes duplicadas saltadas",
+    )
+    total_discarded_invalid: int = Field(
+        default=0,
+        description="Cantidad de imágenes inválidas descartadas",
+    )
+    next_run_in_seconds: int = Field(
+        default=0,
+        description="Segundos restantes hasta la próxima ejecución del loop",
+    )
+
+
 class SystemStatusResponse(BaseModel):
     """Respuesta del endpoint status."""
     database_images_count: int = Field(..., description="Cantidad de imágenes en DB")
