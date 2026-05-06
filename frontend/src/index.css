@@ -1,0 +1,64 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f1117;
+  --bg-card: #1a1d27;
+  --bg-input: #13151f;
+  --border: #2a2d3e;
+  --border-hover: #3d4160;
+  --text-primary: #e8eaf0;
+  --text-secondary: #8b8fa8;
+  --text-muted: #555972;
+  --accent: #4f8ef7;
+  --accent-dim: #1e3a6e;
+  --danger: #e05555;
+  --warning: #e8a020;
+  --success: #3cb878;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+
+body {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  transition: border-color 0.15s, background 0.15s;
+  letter-spacing: 0.03em;
+}
+
+button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+input[type="datetime-local"], input[type="text"], select {
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus { border-color: var(--accent); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
