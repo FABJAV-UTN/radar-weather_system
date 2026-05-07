@@ -1,0 +1,138 @@
+<div id="cd" style="padding:4px 0"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"Anthropic Sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+    classText: dark ? '#c2c0b6' : '#3d3d3a',
+  },
+});
+const diagram = `classDiagram
+  class Settings {
+    +database_url: str
+    +log_level: str
+    +image_source_type: str
+    +geotiff_storage_path: str
+    +DACC_LOOP_INTERVAL_SECONDS: int
+  }
+
+  class DACCScheduler {
+    -geo_loader: GeoReferenceLoader
+    -location: str
+    -_task: asyncio.Task
+    -_stop_event: asyncio.Event
+    +started_at: datetime
+    +last_download_at: datetime
+    +last_image_timestamp: datetime
+    +total_processed_this_session: int
+    +total_skipped_duplicates: int
+    +total_discarded_invalid: int
+    +is_running() bool
+    +start() None
+    +stop() None
+    +get_status() dict
+    -_tick() None
+    -_run_loop() None
+    -_detect_invalid_image() str
+  }
+
+  class ImageSource {
+    <<abstract>>
+    +fetch(identifier, destination) Path
+    +list_available(date_from, date_to) list
+  }
+
+  class LocalSource {
+    -source_path: Path
+    -pattern: str
+    +fetch(identifier, destination) Path
+    +list_available(date_from, date_to) list
+  }
+
+  class DACCApiSource {
+    +fetch(identifier, destination) Path
+    +list_available(date_from, date_to) list
+  }
+
+  class CloudBankSource {
+    -api_url: str
+    +fetch(identifier, destination) Path
+    +list_available(date_from, date_to) list
+  }
+
+  class RadarPipeline {
+    -geo_loader: GeoReferenceLoader
+    -session: AsyncSession
+    -output_dir: Path
+    -location: str
+    -_repo: RadarImageRepository
+    +process(image_path, source_type, fallback_timestamp) Path
+  }
+
+  class GeoReferenceLoader {
+    -datotif_dir: Path
+    -_refs: dict
+    +load_all() None
+    +get(datotif_id) GeoReference
+  }
+
+  class RadarImageRepository {
+    -_session: AsyncSession
+    +save(geotiff_path, location, image_timestamp, source_type, datotif_id, storage_root) RadarImage
+    +get_by_timestamp(location, timestamp) RadarImage
+    +exists(filename) bool
+    +list_by_location(location, date_from, date_to, limit) list
+  }
+
+  class RadarImage {
+    +id: int
+    +location: str
+    +filename: str
+    +file_path: str
+    +image_timestamp: datetime
+    +source_type: str
+    +datotif_id: int
+    +extent: Geometry
+    +width_px: int
+    +height_px: int
+    +max_dbz: float
+    +storm_pixel_count: int
+    +created_at: datetime
+  }
+
+  class ImageSourceEntry {
+    +file_path: Path
+    +filename: str
+    +timestamp: datetime
+    +source_type: str
+  }
+
+  ImageSource <|-- LocalSource
+  ImageSource <|-- DACCApiSource
+  ImageSource <|-- CloudBankSource
+
+  DACCScheduler --> GeoReferenceLoader : usa
+  DACCScheduler --> DACCApiSource : descarga con
+  DACCScheduler --> RadarPipeline : delega a
+
+  RadarPipeline --> GeoReferenceLoader : geolocaliza con
+  RadarPipeline --> RadarImageRepository : persiste en
+  RadarPipeline ..> ImageSourceEntry : consume
+
+  RadarImageRepository --> RadarImage : gestiona
+
+  LocalSource ..> ImageSourceEntry : produce
+  DACCApiSource ..> ImageSourceEntry : produce
+`;
+const { svg } = await mermaid.render('cd-svg', diagram);
+document.getElementById('cd').innerHTML = svg;
+</script>
