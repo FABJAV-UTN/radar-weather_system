@@ -315,3 +315,24 @@ class TestDACCSchedulerStatus:
             assert status["next_run_in_seconds"] >= 0
             
             await scheduler.stop()
+class TestOCRWithRealImage:
+    """Test de OCR con imagen real del DACC."""
+
+    def test_extract_timestamp_from_real_gif(self):
+        """Verifica que el OCR lee el timestamp de una imagen real del DACC."""
+        from app.processing.algorithms.timestamp_extractor import extract_timestamp
+
+        gif_path = Path(__file__).parent.parent.parent.parent / "test.gif"
+        if not gif_path.exists():
+            pytest.skip("test.gif no encontrado en el root del proyecto")
+
+        image = Image.open(gif_path)
+        result = extract_timestamp(image)
+
+        assert result is not None, "OCR no pudo extraer el timestamp"
+        assert result.year == 2026
+        assert result.month == 5
+        assert result.day == 7
+        # El timestamp en la imagen es 04:38:00 UTC, menos 3h → 01:38:00
+        assert result.hour == 1
+        assert result.minute == 38
