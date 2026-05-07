@@ -76,7 +76,7 @@ def extract_timestamp(image: Image.Image) -> datetime | None:
     crop = _crop_timestamp_region(rgb_image)
 
     # OCR en una sola línea
-    raw_text = pytesseract.image_to_string(crop, config="--psm 7")
+    raw_text = pytesseract.image_to_string(crop, config="--psm 6")
     raw_text = raw_text.strip()
     logger.debug("OCR raw timestamp: %r", raw_text)
 

@@ -92,11 +92,7 @@ async def process_local(
                     image_path = Path(image_path)
 
                 # Procesar imagen
-                output_path = await pipeline.process(
-                    image_path=image_path,
-                    source_type="local_bank",
-                    fallback_timestamp=datetime.now(),
-                )
+                output_path = await pipeline.process_local(image_path=image_path)
 
                 if output_path is not None:
                     response.processed += 1

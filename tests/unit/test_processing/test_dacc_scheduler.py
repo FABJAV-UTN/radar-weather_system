@@ -333,6 +333,6 @@ class TestOCRWithRealImage:
         assert result.year == 2026
         assert result.month == 5
         assert result.day == 7
-        # El timestamp en la imagen es 04:38:00 UTC, menos 3h → 01:38:00
-        assert result.hour == 1
-        assert result.minute == 38
+        # El timestamp en la imagen es 05:28:00 UTC, menos 3h → 02:28:00
+        assert result.hour == 2
+        assert result.minute == 28

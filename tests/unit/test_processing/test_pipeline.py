@@ -300,7 +300,7 @@ class TestRadarPipeline:
                 save=AsyncMock(),
                 get_by_timestamp=AsyncMock(return_value=None),
             )
-            result = await pipeline.process(img_path, source_type="dacc_api")
+            result = await pipeline.process_dacc(image_path=img_path)
 
         assert result is not None
         assert result.exists()
@@ -331,7 +331,7 @@ class TestRadarPipeline:
                 save=AsyncMock(),
                 get_by_timestamp=AsyncMock(return_value=None),
             )
-            result = await pipeline.process(img_path, source_type="local_bank", fallback_timestamp=None)
+            result = await pipeline.process_local(image_path=img_path)
 
         assert result is not None
         assert result.exists()
@@ -361,6 +361,6 @@ class TestRadarPipeline:
                 exists=AsyncMock(return_value=False),
                 save=AsyncMock(),
             )
-            result = await pipeline.process(img_path, source_type="dacc_api", fallback_timestamp=None)
+            result = await pipeline.process_dacc(image_path=img_path)
 
         assert result is None

@@ -149,11 +149,7 @@ class DACCScheduler:
                     return
 
                 pipeline = RadarPipeline(self.geo_loader, session)
-                output_path = await pipeline.process(
-                    image_path=fetched_path,
-                    source_type="dacc_api",
-                    fallback_timestamp=None,
-                )
+                output_path = await pipeline.process_dacc(image_path=fetched_path)
 
                 if output_path is not None:
                     self.total_processed_this_session += 1

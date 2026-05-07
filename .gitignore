@@ -219,3 +219,6 @@ __marimo__/
 .env
 
 app/data/geotiffs/
+
+archivo.py
+testtest.py

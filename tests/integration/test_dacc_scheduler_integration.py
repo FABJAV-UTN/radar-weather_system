@@ -85,7 +85,7 @@ class TestDACCSchedulerIntegration:
             mock_async_session.return_value = mock_session_ctx
 
             mock_pipeline = MagicMock()
-            mock_pipeline.process = AsyncMock(return_value=tmp_path / "output.tif")
+            mock_pipeline.process_dacc = AsyncMock(return_value=tmp_path / "output.tif")
             mock_pipeline_class.return_value = mock_pipeline
 
             mock_settings.DACC_LOOP_INTERVAL_SECONDS = 120
@@ -135,11 +135,7 @@ class TestDACCSchedulerIntegration:
             clean_image.return_value = (MagicMock(), MagicMock())
             fill_gaps.return_value = MagicMock()
 
-            output_path = await pipeline.process(
-                image_path=temp_file,
-                source_type="dacc_api",
-                fallback_timestamp=None,
-            )
+            output_path = await pipeline.process_dacc(image_path=temp_file)
 
             # Verificar que el path retornado tenga la estructura correcta
             assert "dacc_api/2026/05/san_rafael_050526_123000.tif" in str(output_path)
