@@ -190,6 +190,11 @@ tests/
 | `uv: command not found` | `source $HOME/.local/bin/env` |
 | Alembic falla | Verificar `DATABASE_URL` y que DB esté corriendo |
 
+reiniciar sesion
+```bash
+newgrp docker
+```
+
 ---
 
 ## 🌐 Variables de Entorno

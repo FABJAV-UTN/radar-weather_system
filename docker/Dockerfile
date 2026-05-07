@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml uv.lock ./
+ENV UV_HTTP_TIMEOUT=120
 RUN uv sync --frozen --no-dev
 
 COPY app/ ./app/
@@ -36,4 +37,3 @@ EXPOSE 8000
 
 ENTRYPOINT ["./docker/entrypoint.sh"]
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-

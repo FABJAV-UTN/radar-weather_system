@@ -29,18 +29,20 @@ logger = logging.getLogger(__name__)
 # Offset en horas entre la hora del radar y UTC-3 (hora local Mendoza)
 RADAR_TIMEZONE_OFFSET_HOURS: int = -3
 
-# Región de la imagen donde aparece el timestamp (en píxeles, post-recorte).
-# Ajustar cuando se tengan imágenes reales para calibrar.
+# Región de la imagen donde aparece el timestamp (en píxeles).
+# El texto está en un banner verde en la parte superior de la imagen.
 TIMESTAMP_CROP: dict[str, int] = {
     "x": 0,
-    "y": 0,
-    "w": 200,
-    "h": 30,
+    "y": 18,
+    "w": 400,
+    "h": 28,
 }
 
 # Patrones de timestamp posibles en la imagen del radar.
 # Se prueban en orden; el primero que matchee gana.
 TIMESTAMP_PATTERNS: list[tuple[str, str]] = [
+    # "2026/05/07 03:40:00 UTC"  ← el formato real del DACC
+    (r"(\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})", "%Y/%m/%d %H:%M:%S"),
     # "04/05/2026 20:30"
     (r"(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2})", "%d/%m/%Y %H:%M"),
     # "2026-05-04 20:30"
@@ -69,11 +71,12 @@ def extract_timestamp(image: Image.Image) -> datetime | None:
         )
         return None
 
-    # Recortar la región del timestamp
-    crop = _crop_timestamp_region(image)
+    # Convertir a RGB y recortar solo la región del timestamp
+    rgb_image = image.convert("RGB")
+    crop = _crop_timestamp_region(rgb_image)
 
-    # OCR
-    raw_text = pytesseract.image_to_string(crop, config="--psm 7 digits")
+    # OCR en una sola línea
+    raw_text = pytesseract.image_to_string(crop, config="--psm 7")
     raw_text = raw_text.strip()
     logger.debug("OCR raw timestamp: %r", raw_text)
 
@@ -133,9 +136,23 @@ def _crop_timestamp_region(image: Image.Image) -> Image.Image:
 
 
 def _parse_timestamp(text: str) -> datetime | None:
-    """Intenta parsear el texto con los patrones conocidos."""
-    # Limpiar caracteres raros del OCR
-    text = re.sub(r"[^\d/:. -]", "", text).strip()
+    text = re.sub(r"[^\d/:.+ -]", "", text).strip()
+    text = text.replace("+", ":").replace(";", ":").replace("ː", ":")
+
+    match = re.search(r"(\d{4}).(\d{2}).(\d{2})\s+(\d{2}).(\d{2}).(\d{2})", text)
+    if match:
+        year_text = match.group(1)
+        year = int(year_text)
+        if year > 2100 and year_text.startswith("9"):
+            year = int(year_text.replace("9", "2"))
+
+        try:
+            return datetime(
+                year, int(match.group(2)), int(match.group(3)),
+                int(match.group(4)), int(match.group(5)), int(match.group(6)),
+            )
+        except ValueError:
+            pass
 
     for pattern, fmt in TIMESTAMP_PATTERNS:
         match = re.search(pattern, text)

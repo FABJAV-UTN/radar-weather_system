@@ -129,7 +129,7 @@ class DACCScheduler:
                 )
                 return
 
-            timestamp = extract_timestamp(crop_margins(image))
+            timestamp = extract_timestamp(image)
             if timestamp is None:
                 self.total_discarded_invalid += 1
                 self._logger().info("DACC loop: OCR falló, imagen descartada")
@@ -214,8 +214,8 @@ class DACCScheduler:
             if phrase in normalized:
                 return phrase
 
-        if parse_timestamp(normalized) is None:
-            return "no timestamp válido"
+        #if parse_timestamp(normalized) is None:
+         #   return "no timestamp válido"
 
         return None
 

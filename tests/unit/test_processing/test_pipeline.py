@@ -211,6 +211,16 @@ class TestTimestamp:
         assert result.year == 2026
         assert result.hour == 20
 
+    def test_parse_robust_ocr_timestamp(self):
+        result = _parse_timestamp("9096/05/07 04+58:00 LTC Composite —")
+        assert result is not None
+        assert result.year == 2026
+        assert result.month == 5
+        assert result.day == 7
+        assert result.hour == 4
+        assert result.minute == 58
+        assert result.second == 0
+
     def test_parse_dash_format(self):
         result = _parse_timestamp("2026-05-04 20:30")
         assert result is not None
