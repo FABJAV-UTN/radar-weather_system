@@ -35,7 +35,7 @@ services:
       - ./app:/app/app:ro
       - ./app/data/geo_templates:/app/data/geo_templates:ro
       - ./app/data/geotiffs:/app/data/geotiffs
-      - /home/fabio/Descargas/compartir-Fabio-20260505T041231Z-3-001/compartir-Fabio:/radar_data:ro
+      - /home/fabjav/Descargas/compartir-Fabio-20260410T170435Z-3-001/compartir-Fabio:/radar_data:ro
 
   frontend:
     build:

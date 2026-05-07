@@ -26,6 +26,8 @@ curl http://localhost:8000/health
 
 La API queda en: http://localhost:8000  
 Documentación: http://localhost:8000/docs
+Frontend: http://localhost:5173
+
 
 ## Apagar
 
@@ -89,6 +91,8 @@ uv run fastapi dev app/main.py
 
 > API en: http://localhost:8000  
 > Docs en: http://localhost:8000/docs
+> Frontend: http://localhost:5173
+
 
 ---
 
