@@ -93,6 +93,25 @@ uv run fastapi dev app/main.py
 > Docs en: http://localhost:8000/docs
 > Frontend: http://localhost:5173
 
+## 📂 Incluir nuevas imágenes de forma local
+
+Reemplazar en `docker-compose.yml`:
+
+```yml
+volumes:
+    - ./app:/app/app:ro
+    - ./app/data/geo_templates:/app/data/geo_templates:ro
+    - ./app/data/geotiffs:/app/data/geotiffs
+    - /home/fabjav/Descargas/compartir-Fabio-20260410T170435Z-3-001/compartir-Fabio:/radar_data:ro
+```
+
+> ⚠️ Reemplazar:
+>
+> ```txt
+> /home/fabjav/Descargas/compartir-Fabio-20260410T170435Z-3-001/compartir-Fabio
+> ```
+>
+> por la ruta local donde estén almacenadas las imágenes radar.
 
 ---
 
