@@ -54,40 +54,21 @@ class RadarPipeline:
         self._repo = RadarImageRepository(session)
 
     async def process_dacc(self, image_path: Path) -> Path | None:
-        """
-        Flujo DACC: OCR → timestamp - 3 horas → crop → limpieza → relleno → geoloc → GeoTIFF.
-
-        Pasos:
-          1. Recorta márgenes
-          2. Extrae timestamp por OCR (con offset -3 horas)
-          3. Verifica duplicado
-          4. Almacena en carpetas dinámicas: dacc_api/YYYY/MM/
-          5. Limpia imagen
-          6. Rellena huecos
-          7. Geolocalización con datotif_id=1
-          8. Persiste en DB
-
-        Args:
-            image_path: Ruta al GIF de entrada.
-
-        Returns:
-            Ruta al GeoTIFF generado, o None si falló.
-        """
         logger.info("DACC: Procesando %s", image_path.name)
 
         image = Image.open(image_path)
 
-        # ─── PASO 1: Recorte de márgenes ─────────────────────────────────────
-        image = crop_margins(image)
-        datotif_id = 1
-
-        # ─── PASO 2: Extracción de timestamp por OCR (se aplica -3 horas) ─────
+        # ─── PASO 1: Extracción de timestamp por OCR (imagen original, con banner) ─
         timestamp = extract_timestamp(image)
         if timestamp is None:
             logger.error("DACC: OCR falló. Imagen descartada: %s", image_path.name)
             return None
 
-        # ─── PASO 3: Verificar duplicado ─────────────────────────────────────
+        # ─── PASO 2: Recorte de márgenes (después del OCR) ───────────────────────
+        image = crop_margins(image)
+        datotif_id = 1
+
+        # ─── PASO 3: Verificar duplicado ─────────────────────────────────────────
         filename = format_filename(self.location, timestamp) + ".tif"
         if await self._repo.get_by_timestamp(self.location, timestamp) is not None:
             logger.info(
@@ -97,7 +78,7 @@ class RadarPipeline:
             )
             return None
 
-        # ─── PASO 4: Almacenamiento dinámico dacc_api/YYYY/MM ────────────────
+        # ─── PASO 4: Almacenamiento dinámico dacc_api/YYYY/MM ────────────────────
         output_root = (
             self.output_dir
             / "dacc_api"
@@ -106,18 +87,18 @@ class RadarPipeline:
         )
         output_root.mkdir(parents=True, exist_ok=True)
 
-        # ─── PASO 5: Limpieza ────────────────────────────────────────────────
+        # ─── PASO 5: Limpieza ────────────────────────────────────────────────────
         clean_rgb, gap_mask = clean_image(image)
 
-        # ─── PASO 6: Relleno de huecos ───────────────────────────────────────
+        # ─── PASO 6: Relleno de huecos ───────────────────────────────────────────
         filled_rgb = fill_gaps(clean_rgb, gap_mask)
 
-        # ─── PASO 7: Geolocalización → GeoTIFF en disco ──────────────────────
+        # ─── PASO 7: Geolocalización → GeoTIFF en disco ──────────────────────────
         geo = self.geo_loader.get(datotif_id)
         output_path = output_root / filename
         apply_geo_reference(filled_rgb, geo, output_path)
 
-        # ─── PASO 8: Persistir en DB ────────────────────────────────────────
+        # ─── PASO 8: Persistir en DB ─────────────────────────────────────────────
         await self._repo.save(
             geotiff_path=output_path,
             location=self.location,
