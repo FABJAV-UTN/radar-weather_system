@@ -11,8 +11,11 @@ Si el OCR falla, se devuelve None y el pipeline puede decidir:
   - Usar la hora de descarga como fallback (con advertencia)
   - Descartar la imagen
 
-Formato esperado en la imagen: "DD/MM/YYYY HH:MM" o similar.
-Ajustar TIMESTAMP_PATTERN cuando se confirme el formato real.
+Enfoque: OCR sobre imagen completa con regex flexible.
+- Se realiza OCR sobre toda la imagen (convert RGB)
+- Se busca fecha con regex: \\d{4}[/-]\\d{2}[/-]\\d{2}
+- Se busca hora con regex: (\\d{2}):(\\d{2}):(\\d{2})
+- Se combina en datetime y se aplica offset -3h
 """
 
 from __future__ import annotations
@@ -56,6 +59,12 @@ def extract_timestamp(image: Image.Image) -> datetime | None:
     """
     Extrae el timestamp de la imagen de radar y lo convierte a hora local.
 
+    Enfoque: OCR sobre imagen completa con regex flexible.
+    - Lee texto completo de la imagen
+    - Busca fecha: YYYY-MM-DD o YYYY/MM/DD
+    - Busca hora: HH:MM:SS
+    - Combina y aplica offset UTC-3
+
     Args:
         image: Imagen PIL (post-recorte de márgenes).
 
@@ -71,24 +80,46 @@ def extract_timestamp(image: Image.Image) -> datetime | None:
         )
         return None
 
-    # Convertir a RGB y recortar solo la región del timestamp
+    # OCR sobre imagen completa (RGB)
     rgb_image = image.convert("RGB")
-    crop = _crop_timestamp_region(rgb_image)
+    raw_text = pytesseract.image_to_string(rgb_image)
+    
+    # Limpiar: normalizar espacios
+    text = " ".join(raw_text.split())
+    logger.debug("OCR raw text: %r", text)
 
-    # OCR en una sola línea
-    raw_text = pytesseract.image_to_string(crop, config="--psm 6")
-    raw_text = raw_text.strip()
-    logger.debug("OCR raw timestamp: %r", raw_text)
-
-    # Parsear
-    dt = _parse_timestamp(raw_text)
-    if dt is None:
-        logger.warning("No se pudo parsear timestamp: %r", raw_text)
+    # Buscar fecha: YYYY-MM-DD o YYYY/MM/DD
+    date_match = re.search(r"(\d{4})[/-](\d{2})[/-](\d{2})", text)
+    if not date_match:
+        logger.warning("No se encontró fecha en OCR")
         return None
 
-    # Aplicar offset de zona horaria
+    year = int(date_match.group(1))
+    month = int(date_match.group(2))
+    day = int(date_match.group(3))
+    logger.debug("Fecha extraída: %04d-%02d-%02d", year, month, day)
+
+    # Buscar hora: HH:MM:SS
+    time_match = re.search(r"(\d{2}):(\d{2}):(\d{2})", text)
+    if not time_match:
+        logger.warning("No se encontró hora en OCR")
+        return None
+
+    hour = int(time_match.group(1))
+    minute = int(time_match.group(2))
+    second = int(time_match.group(3))
+    logger.debug("Hora extraída: %02d:%02d:%02d", hour, minute, second)
+
+    # Construir datetime
+    try:
+        dt = datetime(year, month, day, hour, minute, second)
+    except ValueError as e:
+        logger.error("Error creando datetime: %s", e)
+        return None
+
+    # Aplicar offset de zona horaria (UTC → Mendoza UTC-3)
     local_dt = dt + timedelta(hours=RADAR_TIMEZONE_OFFSET_HOURS)
-    logger.debug("Timestamp imagen: %s → local: %s", dt, local_dt)
+    logger.info("Timestamp imagen (UTC): %s → local (UTC-3): %s", dt, local_dt)
 
     return local_dt
 
@@ -130,7 +161,12 @@ def format_filename(location: str, timestamp: datetime) -> str:
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _crop_timestamp_region(image: Image.Image) -> Image.Image:
-    """Recorta la región donde aparece el timestamp."""
+    """
+    Recorta la región donde aparece el timestamp.
+    
+    [DEPRECATED: Ya no se usa en extract_timestamp()]
+    Mantenido por compatibilidad, pero el nuevo enfoque hace OCR sobre la imagen completa.
+    """
     c = TIMESTAMP_CROP
     return image.crop((c["x"], c["y"], c["x"] + c["w"], c["y"] + c["h"]))
 

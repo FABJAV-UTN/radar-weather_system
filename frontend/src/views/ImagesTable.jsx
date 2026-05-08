@@ -31,7 +31,18 @@ export default function ImagesTable() {
     setLoading(true)
     setError(null)
     getImages({ limit: LIMIT, offset: off, dateFrom: from || undefined, dateTo: to || undefined })
-      .then(d => { setData(d); setLoading(false) })
+      .then(d => {
+        // Garantizar ordenamiento descendente por timestamp (más reciente primero)
+        if (d?.items) {
+          d.items.sort((a, b) => {
+            const aTime = a.image_timestamp ? new Date(a.image_timestamp).getTime() : 0
+            const bTime = b.image_timestamp ? new Date(b.image_timestamp).getTime() : 0
+            return bTime - aTime  // Descendente
+          })
+        }
+        setData(d)
+        setLoading(false)
+      })
       .catch(() => { setError('Error conectando con la API'); setLoading(false) })
   }
 
