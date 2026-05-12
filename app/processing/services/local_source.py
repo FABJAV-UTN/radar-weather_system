@@ -17,7 +17,7 @@ class LocalRadarImage(ImageSourceEntry):
 
 
 class LocalSource(ImageSource):
-    def __init__(self, base_path: Path, pattern: str = "*.png"):
+    def __init__(self, base_path: Path, pattern: str = "*.gif"):
         self.base_path = base_path
         self.pattern = pattern
 
@@ -31,7 +31,16 @@ class LocalSource(ImageSource):
         if not self.base_path.exists():
             raise FileNotFoundError(f"Carpeta de radar no encontrada: {self.base_path}")
 
-        files = [file_path for file_path in self.base_path.glob(self.pattern) if file_path.is_file()]
+        # ← CAMBIO: recursión en subcarpetas + múltiples patrones
+        files: list[Path] = []
+        patterns = ["*.gif", "*.png"] if self.pattern == "*.gif" else [self.pattern]
+        
+        for pattern in patterns:
+            files.extend(self.base_path.rglob(pattern))
+
+        # Eliminar duplicados y ordenar
+        files = sorted(set(files))
+
         entries: list[ImageSourceEntry] = []
         for file_path in files:
             timestamp = extract_timestamp_from_filename(file_path.name)
@@ -43,6 +52,7 @@ class LocalSource(ImageSource):
                 )
             )
 
+        # Ordenar: primero los que tienen timestamp, luego por nombre
         entries.sort(key=lambda entry: (entry.timestamp is None, entry.timestamp or datetime.max, entry.filename))
         return entries
 
