@@ -78,6 +78,82 @@ uv run fastapi dev app/main.py
 
 ---
 
+## 🗄️ Trabajar con la Base de Datos
+
+### Conectar a PostgreSQL (shell interactiva)
+
+```bash
+# Entrar al contenedor de la base de datos
+docker exec -it radar-weather_system-db-1 psql -U radar_user -d radar_db
+```
+
+> 💡 **Tip:** Si el nombre del contenedor es diferente, verificalo con `docker ps`.
+
+---
+
+### 📊 Consultar registros
+
+```sql
+-- Ver cantidad total de imágenes
+SELECT COUNT(*) FROM radar_images;
+
+-- Ver últimas 20 imágenes (básico)
+SELECT id, filename, image_timestamp, source_type FROM radar_images
+ORDER BY image_timestamp DESC LIMIT 20;
+
+-- Ver TODOS los campos de una imagen específica
+SELECT * FROM radar_images WHERE id = 1;
+
+-- Paginar resultados (offset/limit)
+SELECT id, filename, image_timestamp FROM radar_images
+ORDER BY image_timestamp DESC LIMIT 20 OFFSET 0;   -- página 1
+SELECT id, filename, image_timestamp FROM radar_images
+ORDER BY image_timestamp DESC LIMIT 20 OFFSET 20;  -- página 2
+
+-- Filtrar por ubicación
+SELECT * FROM radar_images WHERE location = 'san_rafael';
+
+-- Filtrar por rango de fechas
+SELECT * FROM radar_images
+WHERE image_timestamp BETWEEN '2026-05-01' AND '2026-05-31';
+```
+
+---
+
+### 🗑️ Eliminar registros
+
+```sql
+-- Eliminar UNA imagen por ID
+DELETE FROM radar_images WHERE id = 1;
+
+-- Eliminar imágenes de una fuente específica
+DELETE FROM radar_images WHERE source_type = 'dacc_api';
+
+-- VACIAR TODA la tabla (rápido, reinicia IDs)
+TRUNCATE TABLE radar_images RESTART IDENTITY;
+
+-- Vaciar tabla SIN reiniciar IDs (más lento que TRUNCATE)
+DELETE FROM radar_images;
+```
+
+> ⚠️ **TRUNCATE** es más rápido que `DELETE` porque no borra fila por fila.  
+> ⚠️ **RESTART IDENTITY** hace que los IDs vuelvan a empezar desde 1.
+
+---
+
+### 🌐 Ver registros desde el navegador (API REST)
+
+| Acción | URL |
+|---|---|
+| **Listar imágenes (paginado)** | `http://localhost:8000/api/v1/images?limit=20&offset=0` |
+| **Página 2** | `http://localhost:8000/api/v1/images?limit=20&offset=20` |
+| **Con filtros** | `http://localhost:8000/api/v1/images?location=san_rafael&date_from=2026-05-01&limit=50&offset=0` |
+| **Estadísticas** | `http://localhost:8000/api/v1/images/stats` |
+| **Una imagen por ID** | `http://localhost:8000/api/v1/images/1` |
+| **Eliminar por ID (curl)** | `curl -X DELETE http://localhost:8000/api/v1/images/1` |
+
+---
+
 ## 🧪 Flujo de Desarrollo TDD (Día a Día)
 
 Este proyecto usa **TDD + SDD**. Cada feature nueva sigue este flujo:
@@ -181,6 +257,8 @@ tests/
 | `uv: command not found` | `source $HOME/.local/bin/env` o reiniciar terminal |
 | Alembic falla | Verificar `DATABASE_URL` en `.env` y que DB esté corriendo |
 | Tests lentos | Usar `pytest -x` (para en primer fallo) o `-k` para filtrar |
+| No puedo entrar a psql | Verificar que el contenedor esté corriendo: `docker ps` |
+| `TRUNCATE` no funciona | Asegurate de estar dentro de psql (prompt `radar_db=#`) |
 
 ---
 
